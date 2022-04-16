@@ -1,13 +1,16 @@
 #include <Wire.h>
 
-int buttonpin = 2;
+int redbuttonpin = 2;
+int whitebuttonpin = 3;
 //#A4 = SDA
 //#A5 = SCL
 unsigned char presscount = 0x00;
 void setup()
 {
   Wire.begin();
-  pinMode(buttonpin, INPUT);
+  Wire.setClock( 400000L);
+  pinMode(whitebuttonpin, INPUT);
+  pinMode(redbuttonpin, INPUT);
   Serial.begin(9600);
   while (!Serial);             // Leonardo: wait for serial monitor
   Serial.println("\nI2C Scanner");
@@ -18,12 +21,42 @@ void setup()
 void loop(){
   byte error, address=0x20;
   int nDevices=0;
-  if(digitalRead(buttonpin)== HIGH){
+  if(digitalRead(redbuttonpin)== HIGH){
     presscount++;
     Serial.println(presscount);
     Serial.println("Button Pressed");
     Wire.beginTransmission(address);
-    Wire.write(presscount);
+    Wire.write(0x30);
+    //Wire.write(presscount);
+    error = Wire.endTransmission();
+ 
+    if (error == 0){
+      Serial.print("I2C device found at address 0x");
+      if (address<16)
+        Serial.print("0");
+      Serial.print(address,HEX);
+      Serial.println("  !");
+ 
+      nDevices++;
+    }
+    else if (error==4){
+      Serial.print("Unknown error at address 0x");
+      if (address<16)
+        Serial.print("0");
+      Serial.println(address,HEX);
+    }
+    else{
+      Serial.println("Device not found!");
+      }
+    delay(200);  
+  }
+    else if(digitalRead(whitebuttonpin)== HIGH){
+    presscount++;
+    Serial.println(presscount);
+    Serial.println("Button Pressed");
+    Wire.beginTransmission(address);
+    Wire.write(0x10); //of onder:
+    //Wire.write(presscount);
     error = Wire.endTransmission();
  
     if (error == 0){

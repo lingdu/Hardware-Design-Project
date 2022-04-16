@@ -81,13 +81,15 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 }
 
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
-	HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
+	//HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
 	//HAL_I2C_EnableListen_IT(&hi2c1);
-	if(buffer[0] == 0x01){
+	if(buffer[0] == 0x10){
 		//CS high
+		HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
 	}
-	else if(buffer[0] == 0x02){
+	else if(buffer[0] == 0x30){
 		//CS low
+		HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	}
 	else if(buffer[0] == 0x0C){
 		//new device added ==> pull down new_dev
