@@ -58,8 +58,8 @@ all: main-build
 main-build: STM32F407-I2C_slave_test.elf secondary-outputs
 
 # Tool invocations
-STM32F407-I2C_slave_test.elf: $(OBJS) $(USER_OBJS) C:\Users\Ruben\STM32CubeIDE\workspace_1.5.1\STM32F407-I2C_slave_test\STM32F407VGTX_FLASH.ld
-	arm-none-eabi-gcc -o "STM32F407-I2C_slave_test.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Ruben\STM32CubeIDE\workspace_1.5.1\STM32F407-I2C_slave_test\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="STM32F407-I2C_slave_test.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+STM32F407-I2C_slave_test.elf: $(OBJS) $(USER_OBJS) D:\OneDrive\ -\ UGent\UGent\Burgerlijk_Ingenieur\Semester\ 2\HOP\Software\CubeIDE\STM32F407-I2C_slave_test\STM32F407VGTX_FLASH.ld
+	arm-none-eabi-gcc -o "STM32F407-I2C_slave_test.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\OneDrive - UGent\UGent\Burgerlijk_Ingenieur\Semester 2\HOP\Software\CubeIDE\STM32F407-I2C_slave_test\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="STM32F407-I2C_slave_test.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

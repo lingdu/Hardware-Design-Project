@@ -1,7 +1,7 @@
 #MicroXplorer Configuration settings - do not modify
 File.Version=6
 I2C1.IPParameters=OwnAddress,NoStretchMode
-I2C1.NoStretchMode=I2C_NOSTRETCH_ENABLE
+I2C1.NoStretchMode=I2C_NOSTRETCH_DISABLE
 I2C1.OwnAddress=0x20
 I2S3.AudioFreq-Half_Duplex_Master=I2S_AUDIOFREQ_96K
 I2S3.ErrorAudioFreq=-2.34 %

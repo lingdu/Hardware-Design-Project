@@ -28,7 +28,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+  uint8_t buffer[1];
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -62,7 +62,7 @@ void MX_USB_HOST_Process(void);
 /* USER CODE BEGIN PFP */
 void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, uint16_t AddrMatchCode){
 	HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
+	//HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
 	/*
 	HAL_I2C_DisableListen_IT(&hi2c1);
 	uint8_t i2c_receive_slave[1];
@@ -81,17 +81,30 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 }
 
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
-	HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
-	HAL_I2C_EnableListen_IT(&hi2c1);
+	//HAL_I2C_EnableListen_IT(&hi2c1);
+	if(buffer[0] == 0x01){
+		//CS high
+	}
+	else if(buffer[0] == 0x02){
+		//CS low
+	}
+	else if(buffer[0] == 0x0C){
+		//new device added ==> pull down new_dev
+	}
+
+	// Issue new receive interrupt
+	if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
+	  	asm("bkpt 255");
+	}
 
 }
 
 
 
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c){
-	HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
+	//HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+	//HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
 	HAL_I2C_EnableListen_IT(&hi2c1);
 
 }
@@ -150,9 +163,11 @@ int main(void)
 
   HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
+  //HAL_I2C_EnableListen_IT(&hi2c1);
 
-  HAL_I2C_EnableListen_IT(&hi2c1);
-
+  if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
+  	asm("bkpt 255");
+  }
 
   /* USER CODE END 2 */
 
@@ -242,7 +257,7 @@ static void MX_I2C1_Init(void)
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c1.Init.OwnAddress2 = 0;
   hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_ENABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
   if (HAL_I2C_Init(&hi2c1) != HAL_OK)
   {
     Error_Handler();

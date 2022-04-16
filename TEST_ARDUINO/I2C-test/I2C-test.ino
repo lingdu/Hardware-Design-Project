@@ -3,7 +3,7 @@
 int buttonpin = 2;
 //#A4 = SDA
 //#A5 = SCL
- 
+unsigned char presscount = 0x00;
 void setup()
 {
   Wire.begin();
@@ -19,8 +19,11 @@ void loop(){
   byte error, address=0x20;
   int nDevices=0;
   if(digitalRead(buttonpin)== HIGH){
+    presscount++;
+    Serial.println(presscount);
     Serial.println("Button Pressed");
     Wire.beginTransmission(address);
+    Wire.write(presscount);
     error = Wire.endTransmission();
  
     if (error == 0){
@@ -41,7 +44,7 @@ void loop(){
     else{
       Serial.println("Device not found!");
       }
-    delay(500);  
+    delay(200);  
   }
 }
 
