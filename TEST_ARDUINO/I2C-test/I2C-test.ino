@@ -2,15 +2,18 @@
 
 int redbuttonpin = 2;
 int whitebuttonpin = 3;
+int blackbuttonpin = 4;
+byte value = 0x00;
 //#A4 = SDA
 //#A5 = SCL
 unsigned char presscount = 0x00;
 void setup()
 {
   Wire.begin();
-  Wire.setClock( 400000L);
+  //Wire.setClock( 400000L);
   pinMode(whitebuttonpin, INPUT);
   pinMode(redbuttonpin, INPUT);
+  pinMode(blackbuttonpin, INPUT);
   Serial.begin(9600);
   while (!Serial);             // Leonardo: wait for serial monitor
   Serial.println("\nI2C Scanner");
@@ -23,8 +26,8 @@ void loop(){
   int nDevices=0;
   if(digitalRead(redbuttonpin)== HIGH){
     presscount++;
+    Serial.print("Presses: ");
     Serial.println(presscount);
-    Serial.println("Button Pressed");
     Wire.beginTransmission(address);
     Wire.write(0x30);
     //Wire.write(presscount);
@@ -50,10 +53,10 @@ void loop(){
       }
     delay(200);  
   }
-    else if(digitalRead(whitebuttonpin)== HIGH){
+  else if(digitalRead(whitebuttonpin)== HIGH){
     presscount++;
+    Serial.print("Presses: ");
     Serial.println(presscount);
-    Serial.println("Button Pressed");
     Wire.beginTransmission(address);
     Wire.write(0x10); //of onder:
     //Wire.write(presscount);
@@ -78,6 +81,39 @@ void loop(){
       Serial.println("Device not found!");
       }
     delay(200);  
+  }
+  else if(digitalRead(blackbuttonpin)== HIGH){
+    presscount++;
+    Serial.print("Presses: ");
+    Serial.println(presscount);
+    Wire.beginTransmission(address);
+    Wire.write(0x33); //REGISTER
+    error = Wire.endTransmission();//false
+
+    while (Wire.requestFrom(address, 2) <0);
+    value = Wire.read();
+    Serial.println(value,HEX);
+    value = Wire.read();
+    Serial.println(value,HEX);
+    if (error == 0){
+      Serial.print("I2C device found at address 0x");
+      if (address<16)
+        Serial.print("0");
+      Serial.print(address,HEX);
+      Serial.println("  !");
+
+      nDevices++;
+    }
+    else if (error==4){
+      Serial.print("Unknown error at address 0x");
+      if (address<16)
+        Serial.print("0");
+      Serial.println(address,HEX);
+    }
+    else{
+      Serial.println("Device not found!");
+      }
+    delay(300);  
   }
 }
 

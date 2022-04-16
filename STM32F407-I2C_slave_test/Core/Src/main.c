@@ -29,6 +29,8 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
   uint8_t buffer[1];
+  uint8_t transmit_requested = 0;
+  uint8_t testval = 0x00;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -83,23 +85,33 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
 	//HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
 	//HAL_I2C_EnableListen_IT(&hi2c1);
+
+
 	if(buffer[0] == 0x10){
 		//CS high
 		HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
+
+		// Issue new receive interrupt
+		if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
+			 asm("bkpt 255");
+		}
 	}
 	else if(buffer[0] == 0x30){
 		//CS low
 		HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+		if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
+			 asm("bkpt 255");
+		}
 	}
-	else if(buffer[0] == 0x0C){
+	else if(buffer[0] == 0x33){
 		//new device added ==> pull down new_dev
+		asm("nop");
+		//transmit_requested = 1;
+		testval++;
+		uint8_t buf[2] = {testval,testval};
+		HAL_I2C_Slave_Transmit_IT(&hi2c1, &buf, 2);
+		asm("nop");
 	}
-
-	// Issue new receive interrupt
-	if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
-	  	asm("bkpt 255");
-	}
-
 }
 
 
@@ -107,7 +119,11 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c){
 	//HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	//HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
-	HAL_I2C_EnableListen_IT(&hi2c1);
+	//HAL_I2C_EnableListen_IT(&hi2c1);
+	asm("nop");
+	if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
+	  	asm("bkpt 255");
+	  }
 
 }
 
