@@ -10,7 +10,7 @@ unsigned char presscount = 0x00;
 void setup()
 {
   Wire.begin();
-  //Wire.setClock( 400000L);
+  Wire.setClock( 400000L);
   pinMode(whitebuttonpin, INPUT);
   pinMode(redbuttonpin, INPUT);
   pinMode(blackbuttonpin, INPUT);
@@ -29,7 +29,7 @@ void loop(){
     Serial.print("Presses: ");
     Serial.println(presscount);
     Wire.beginTransmission(address);
-    Wire.write(0x30);
+    Wire.write(0x01);
     //Wire.write(presscount);
     error = Wire.endTransmission();
  
@@ -58,7 +58,7 @@ void loop(){
     Serial.print("Presses: ");
     Serial.println(presscount);
     Wire.beginTransmission(address);
-    Wire.write(0x10); //of onder:
+    Wire.write(0x02); //of onder:
     //Wire.write(presscount);
     error = Wire.endTransmission();
  
@@ -87,10 +87,10 @@ void loop(){
     Serial.print("Presses: ");
     Serial.println(presscount);
     Wire.beginTransmission(address);
-    Wire.write(0x33); //REGISTER
+    Wire.write(0x03); //REGISTER
     error = Wire.endTransmission();//false
 
-    while (Wire.requestFrom(address, 2) <0);
+    while (Wire.requestFrom(address, 1) <0);
     value = Wire.read();
     Serial.println(value,HEX);
     value = Wire.read();

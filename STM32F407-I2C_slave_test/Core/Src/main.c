@@ -28,13 +28,19 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-  uint8_t buffer[1];
-  uint8_t transmit_requested = 0;
-  uint8_t testval = 0x00;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DEBUG_MODE 				0x00 // 0x00 = debug, 0xFF = normal operation
+
+#define STM32_SLAVE_ADDRESS		0x20
+#define STM32_CMD_CS_HIGH		0x01
+#define STM32_CMD_CS_LOW		0x02
+#define STM32_CMD_CS_STATUS		0x03
+#define STM32_CMD_IRQ_STATUS	0x04
+#define STM32_CMD_NEWDEV_OK		0x05
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,7 +56,10 @@ I2S_HandleTypeDef hi2s3;
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
-
+uint8_t I2C_DATA_BUFFER[1];
+uint8_t CS_STATUS = 0xFF; //CS high (0xFF) => DW3220 SPI OFF | CS low (0x00) => DW3220 SPI ON
+uint8_t IRQ_STATUS = 0x00; //IRQ low (0x00) => no DW3220 IRQ | IRQ high (0xFF) => DW3220 IRQ
+uint8_t NEWDEV_STATUS = 0xFF; //NEWDEV high (0xFF) => board just started up and requests I2C confirmation by host
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,73 +73,71 @@ void MX_USB_HOST_Process(void);
 /* USER CODE BEGIN PFP */
 void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, uint16_t AddrMatchCode){
 	HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	//HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
-	/*
-	HAL_I2C_DisableListen_IT(&hi2c1);
-	uint8_t i2c_receive_slave[1];
-	i2c_receive_slave[0]=0x08;
-	uint8_t i2c_send_slave[1];
-	i2c_send_slave[0] =0x06;
-	if(TransferDirection==0) //master write
-	{
-		HAL_I2C_Slave_Receive_IT(&hi2c1, &i2c_receive_slave, 1);
-	}
-	if(TransferDirection==1) //master read
-	{
-		HAL_I2C_Slave_Transmit_IT(&hi2c1, &i2c_send_slave, 1);
-	}
-	*/
 }
 
 void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
-	//HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
-	//HAL_I2C_EnableListen_IT(&hi2c1);
-
-
-	if(buffer[0] == 0x10){
-		//CS high
+	if(I2C_DATA_BUFFER[0] == STM32_CMD_CS_HIGH){
+		// Toggle CS HIGH => DW3220 SPI OFF
 		HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
 
+		// Set CS_STATUS HIGH
+		CS_STATUS = 0xFF;
+
 		// Issue new receive interrupt
-		if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
+		if(HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER)) != HAL_OK){
 			 asm("bkpt 255");
 		}
 	}
-	else if(buffer[0] == 0x30){
-		//CS low
+	else if(I2C_DATA_BUFFER[0] == STM32_CMD_CS_LOW){
+		// Toggle CS LOW => DW3220 SPI ON
 		HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-		if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
+
+		// Set CS_STATUS LOW
+		CS_STATUS = 0x00;
+
+		// Issue new receive interrupt
+		if(HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER)) != HAL_OK){
 			 asm("bkpt 255");
 		}
 	}
-	else if(buffer[0] == 0x33){
-		//new device added ==> pull down new_dev
-		asm("nop");
-		//transmit_requested = 1;
-		testval++;
-		uint8_t buf[2] = {testval,testval};
-		HAL_I2C_Slave_Transmit_IT(&hi2c1, &buf, 2);
-		asm("nop");
+	else if(I2C_DATA_BUFFER[0] == STM32_CMD_CS_STATUS){
+		I2C_DATA_BUFFER[0] = CS_STATUS;
+		// Reply MASTER with CS_STATUS
+		HAL_I2C_Slave_Transmit_IT(&hi2c1, &I2C_DATA_BUFFER, 1);
+
+		// Don't issue new receive interrupt yet!
+	}
+	else if(I2C_DATA_BUFFER[0] == STM32_CMD_IRQ_STATUS){
+		// Reply MASTER with IRQ_STATUS
+		HAL_I2C_Slave_Transmit_IT(&hi2c1, IRQ_STATUS, 1);
+
+		// Don't issue new receive interrupt yet!
+	}
+
+	else if(I2C_DATA_BUFFER[0] == STM32_CMD_NEWDEV_OK){
+		// Set LED1 OFF => NEWDEV = low
+		HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
+
+		NEWDEV_STATUS = 0x00;
+
+		// Issue new receive interrupt
+		if(HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER)) != HAL_OK){
+			 asm("bkpt 255");
+		}
 	}
 }
 
 
-
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c){
-	//HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	//HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
-	//HAL_I2C_EnableListen_IT(&hi2c1);
-	asm("nop");
-	if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
+	// Issue new receive interrupt after replying MASTER from a write
+	if(HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER)) != HAL_OK){
 	  	asm("bkpt 255");
 	  }
-
 }
 
 void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef *hi2c) {
 	HAL_I2C_EnableListen_IT(hi2c); // Restart
 }
-
 
 
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
@@ -181,9 +188,9 @@ int main(void)
 
   HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
-  //HAL_I2C_EnableListen_IT(&hi2c1);
 
-  if(HAL_I2C_Slave_Receive_IT(&hi2c1, &buffer, sizeof(buffer)) != HAL_OK){
+
+  if(HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER)) != HAL_OK){
   	asm("bkpt 255");
   }
 

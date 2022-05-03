@@ -14,6 +14,9 @@
   * License. You may obtain a copy of the License at:
   *                        opensource.org/licenses/BSD-3-Clause
   *
+  * Author: Ruben Wilssens
+  * Date: March 2022
+  *
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -32,6 +35,14 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DEVICE_MODE				0x00 // 0xF0 = debug (LEDS), 0xF1 = debug (GPIO), 0xF2 = debug (EXTI) , 0x00 = normal operation
+
+#define STM32_CMD_CS_HIGH		0x01
+#define STM32_CMD_CS_LOW		0x02
+#define STM32_CMD_CS_STATUS		0x03
+#define STM32_CMD_IRQ_STATUS	0x04
+#define STM32_CMD_NEWDEV_OK		0x05
+#define STM32_CMD_SLEEP			0x06
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -43,7 +54,10 @@
 I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
-
+uint8_t I2C_DATA_BUFFER[1];
+uint8_t CS_STATUS = 0xFF; //CS high (0xFF) => DW3220 SPI OFF | CS low (0x00) => DW3220 SPI ON
+uint8_t IRQ_STATUS = 0x00; //IRQ low (0x00) => no DW3220 IRQ | IRQ high (0xFF) => DW3220 IRQ
+uint8_t NEWDEV_STATUS = 0xFF; //NEWDEV high (0xFF) => board just started up and requests I2C confirmation by host
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -54,6 +68,74 @@ static void MX_I2C1_Init(void);
 
 void HAL_GPIO_EXTI_Callback(uint16_t);
 void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef*);
+
+/* USER CODE BEGIN PFP */
+void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
+	if(I2C_DATA_BUFFER[0] == STM32_CMD_CS_HIGH){
+		// Toggle CS HIGH => DW3220 SPI OFF
+		HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+
+		// Set CS_STATUS HIGH
+		CS_STATUS = 0xFF;
+
+		// Issue new receive interrupt
+		HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
+	}
+	else if(I2C_DATA_BUFFER[0] == STM32_CMD_CS_LOW){
+		// Toggle CS LOW => DW3220 SPI ON
+		HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+
+		// Set CS_STATUS LOW
+		CS_STATUS = 0x00;
+
+		// Issue new receive interrupt
+		HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
+	}
+	/*
+	else if(I2C_DATA_BUFFER[0] == STM32_CMD_CS_STATUS){
+		I2C_DATA_BUFFER[0] = CS_STATUS;
+		// Reply MASTER with CS_STATUS
+		HAL_I2C_Slave_Transmit_IT(&hi2c1, &I2C_DATA_BUFFER, 1);
+
+		// Don't issue new receive interrupt yet!
+	}
+	else if(I2C_DATA_BUFFER[0] == STM32_CMD_IRQ_STATUS){
+		// Reply MASTER with IRQ_STATUS
+		HAL_I2C_Slave_Transmit_IT(&hi2c1, IRQ_STATUS, 1);
+
+		// Don't issue new receive interrupt yet!
+	}
+	*/
+	else if(I2C_DATA_BUFFER[0] == STM32_CMD_NEWDEV_OK){
+		// Set LED1 OFF => NEWDEV = low
+		HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+
+		NEWDEV_STATUS = 0x00;
+
+		// Issue new receive interrupt
+		HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
+	}
+	/*
+	else if(I2C_DATA_BUFFER[0] == STM32_CMD_SLEEP){
+			// Sleep device
+			HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+
+		}
+		*/
+}
+
+
+void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c){
+	// Issue new receive interrupt after replying MASTER from a write
+	HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
+}
+/*
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
+	if (HAL_I2C_GetError(hi2c) != HAL_I2C_ERROR_AF) {
+		asm("nop");
+	}
+}
+*/
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -92,8 +174,15 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+  // Set LEDs initial state
+  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+
+  // Set NEW_DEVICE line high
+  HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_SET);
+
+  // Enable I2C receive interrupts
+  HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
 
   /* USER CODE END 2 */
 
@@ -101,6 +190,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if(DEVICE_MODE == 0xF0){
+		  // Blink leds alternating
+		  HAL_Delay(500);
+		  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+		  HAL_Delay(500);
+		  HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+	  }
+	  else if(DEVICE_MODE == 0xF1){
+		  // Test output GPIO's (open drain)
+		  HAL_Delay(500);
+		  HAL_GPIO_WritePin(IRQ_line_GPIO_Port, IRQ_line_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_SET);
+		  HAL_Delay(500);
+		  HAL_GPIO_WritePin(IRQ_line_GPIO_Port, IRQ_line_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_RESET);
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -228,25 +333,29 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : IRQ_line_Pin */
-  GPIO_InitStruct.Pin = IRQ_line_Pin;
+  /*Configure GPIO pins : IRQ_line_Pin NEW_DEVICE_Pin */
+  GPIO_InitStruct.Pin = IRQ_line_Pin|NEW_DEVICE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(IRQ_line_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : NEW_DEVICE_Pin SPI_CSn_Pin */
-  GPIO_InitStruct.Pin = NEW_DEVICE_Pin|SPI_CSn_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : SPI_CSn_Pin */
+  GPIO_InitStruct.Pin = SPI_CSn_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SPI_CSn_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : IRQ_Pin */
   GPIO_InitStruct.Pin = IRQ_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(IRQ_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
 
 }
 
@@ -254,17 +363,20 @@ static void MX_GPIO_Init(void)
 
 /* Callback external interrupts */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-
 	switch(GPIO_Pin){
 		case IRQ_Pin:
-			// do stuff
+			if(HAL_GPIO_ReadPin(IRQ_GPIO_Port, IRQ_Pin) == GPIO_PIN_SET){
+				// DW3220 generates interrupt ==> Pull down IRQ_line (open drain)
+				HAL_GPIO_WritePin(IRQ_line_GPIO_Port, IRQ_line_Pin, GPIO_PIN_RESET);
+			}
+			else{
+				// DW3220 stops interrupt ==> Release IRQ_line (open drain)
+				HAL_GPIO_WritePin(IRQ_line_GPIO_Port, IRQ_line_Pin, GPIO_PIN_SET);
+			}
 			break;
 
 		case WAKEUP_Pin:
-			// do stuff
-			break;
-		case NEW_DEVICE_Pin:
-			// do stuff
+			// Wake-up device
 			break;
 	}
 }
