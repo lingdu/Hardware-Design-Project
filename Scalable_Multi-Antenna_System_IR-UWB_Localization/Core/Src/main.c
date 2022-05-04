@@ -14,35 +14,34 @@
   * License. You may obtain a copy of the License at:
   *                        opensource.org/licenses/BSD-3-Clause
   *
-  * Author: Ruben Wilssens
-  * Date: March 2022
+  * Author: 	Ruben Wilssens
+  * Github:		https://github.com/ruben-wilssens
+  * Date: 		April 2022
   *
   ******************************************************************************
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define DEVICE_MODE				0x00 // 0xF0 = debug (LEDS), 0xF1 = debug (GPIO), 0xF2 = debug (EXTI) , 0x00 = normal operation
 
+//#define DEVICE_MODE				0xF0 // 0xF0 = debug (LEDS), 0xF1 = debug (GPIO), 0xF2 = debug (EXTI) , 0x00 = normal operation
 #define STM32_CMD_CS_HIGH		0x01
 #define STM32_CMD_CS_LOW		0x02
-#define STM32_CMD_CS_STATUS		0x03
-#define STM32_CMD_IRQ_STATUS	0x04
-#define STM32_CMD_NEWDEV_OK		0x05
-#define STM32_CMD_SLEEP			0x06
+#define STM32_CMD_NEWDEV_OK		0x03
+//#define STM32_CMD_CS_STATUS		0x04
+//#define STM32_CMD_IRQ_STATUS	0x05
+//#define STM32_CMD_SLEEP		0x06
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,9 +54,9 @@ I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
 uint8_t I2C_DATA_BUFFER[1];
-uint8_t CS_STATUS = 0xFF; //CS high (0xFF) => DW3220 SPI OFF | CS low (0x00) => DW3220 SPI ON
-uint8_t IRQ_STATUS = 0x00; //IRQ low (0x00) => no DW3220 IRQ | IRQ high (0xFF) => DW3220 IRQ
-uint8_t NEWDEV_STATUS = 0xFF; //NEWDEV high (0xFF) => board just started up and requests I2C confirmation by host
+//uint8_t CS_STATUS = 0xFF; //CS high (0xFF) => DW3220 SPI OFF | CS low (0x00) => DW3220 SPI ON
+//uint8_t IRQ_STATUS = 0x00; //IRQ low (0x00) => no DW3220 IRQ | IRQ high (0xFF) => DW3220 IRQ
+//uint8_t NEWDEV_STATUS = 0xFF; //NEWDEV high (0xFF) => board just started up and requests I2C confirmation by host
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -67,75 +66,12 @@ static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 void HAL_GPIO_EXTI_Callback(uint16_t);
-void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef*);
+void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *);
+//void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef*);
+
 
 /* USER CODE BEGIN PFP */
-void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
-	if(I2C_DATA_BUFFER[0] == STM32_CMD_CS_HIGH){
-		// Toggle CS HIGH => DW3220 SPI OFF
-		HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
-		// Set CS_STATUS HIGH
-		CS_STATUS = 0xFF;
-
-		// Issue new receive interrupt
-		HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
-	}
-	else if(I2C_DATA_BUFFER[0] == STM32_CMD_CS_LOW){
-		// Toggle CS LOW => DW3220 SPI ON
-		HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-
-		// Set CS_STATUS LOW
-		CS_STATUS = 0x00;
-
-		// Issue new receive interrupt
-		HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
-	}
-	/*
-	else if(I2C_DATA_BUFFER[0] == STM32_CMD_CS_STATUS){
-		I2C_DATA_BUFFER[0] = CS_STATUS;
-		// Reply MASTER with CS_STATUS
-		HAL_I2C_Slave_Transmit_IT(&hi2c1, &I2C_DATA_BUFFER, 1);
-
-		// Don't issue new receive interrupt yet!
-	}
-	else if(I2C_DATA_BUFFER[0] == STM32_CMD_IRQ_STATUS){
-		// Reply MASTER with IRQ_STATUS
-		HAL_I2C_Slave_Transmit_IT(&hi2c1, IRQ_STATUS, 1);
-
-		// Don't issue new receive interrupt yet!
-	}
-	*/
-	else if(I2C_DATA_BUFFER[0] == STM32_CMD_NEWDEV_OK){
-		// Set LED1 OFF => NEWDEV = low
-		HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-
-		NEWDEV_STATUS = 0x00;
-
-		// Issue new receive interrupt
-		HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
-	}
-	/*
-	else if(I2C_DATA_BUFFER[0] == STM32_CMD_SLEEP){
-			// Sleep device
-			HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-
-		}
-		*/
-}
-
-
-void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c){
-	// Issue new receive interrupt after replying MASTER from a write
-	HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
-}
-/*
-void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
-	if (HAL_I2C_GetError(hi2c) != HAL_I2C_ERROR_AF) {
-		asm("nop");
-	}
-}
-*/
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -174,12 +110,12 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
-  // Set LEDs initial state
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  // Set LEDs initial state (LED
+  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET); // NEWDEV LED enabled
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET); // CS LED disabled
 
-  // Set NEW_DEVICE line high
-  HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_SET);
+  // Set NEW_DEVICE line low (open drain)
+  HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_RESET);
 
   // Enable I2C receive interrupts
   HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
@@ -188,24 +124,26 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-	  if(DEVICE_MODE == 0xF0){
-		  // Blink leds alternating
-		  HAL_Delay(500);
-		  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-		  HAL_Delay(500);
-		  HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-	  }
-	  else if(DEVICE_MODE == 0xF1){
-		  // Test output GPIO's (open drain)
-		  HAL_Delay(500);
-		  HAL_GPIO_WritePin(IRQ_line_GPIO_Port, IRQ_line_Pin, GPIO_PIN_RESET);
-		  HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_SET);
-		  HAL_Delay(500);
-		  HAL_GPIO_WritePin(IRQ_line_GPIO_Port, IRQ_line_Pin, GPIO_PIN_SET);
-		  HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_RESET);
-	  }
+  while (1){
+
+//	  if(DEVICE_MODE == 0xF0){
+//		  // Blink leds alternating
+//		  HAL_Delay(500);
+//		  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+//		  HAL_Delay(500);
+//		  HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+//	  }
+//	  else if(DEVICE_MODE == 0xF1){
+//		  // Test output GPIO's (open drain)
+//		  HAL_Delay(500);
+//		  HAL_GPIO_WritePin(IRQ_line_GPIO_Port, IRQ_line_Pin, GPIO_PIN_RESET);
+//		  HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_SET);
+//		  HAL_Delay(500);
+//		  HAL_GPIO_WritePin(IRQ_line_GPIO_Port, IRQ_line_Pin, GPIO_PIN_SET);
+//		  HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_RESET);
+//	  }
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -375,20 +313,89 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 			}
 			break;
 
-		case WAKEUP_Pin:
-			// Wake-up device
-			break;
+//		case WAKEUP_Pin:
+//			// Wake-up device
+//			break;
 	}
 }
 
-HAL_I2C_MasterTxCpltCallback (I2C_HandleTypeDef *hi2c)
-{
-  /* when
-   * hal_i2c_master_transmit_it (i2c_handletypedef * hi2c, uint16_t devaddress, uint8_t * pdata, uint16_t size);
-   * is called and after completion, this function will be called and executed.
-   * if you’d like to do something upon data transmission completion, then add this to your code in the application source file (main.c).
-	*/
+void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c){
+	switch(I2C_DATA_BUFFER[0]){
+		case STM32_CMD_CS_HIGH:
+			// Toggle CS HIGH & disable CS LED (LED2) => DW3220 SPI DISABLED
+			HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin,GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(SPI_CSn_GPIO_Port, SPI_CSn_Pin, GPIO_PIN_SET);
+
+//			CS_STATUS = 0xFF;
+
+			// Issue new receive interrupt
+			HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
+			break;
+
+		case STM32_CMD_CS_LOW:
+			// Toggle CS LOW & enable CS LED (LED2) => DW3220 SPI ENABLED
+			HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(SPI_CSn_GPIO_Port, SPI_CSn_Pin, GPIO_PIN_RESET);
+
+//			CS_STATUS = 0x00;
+
+			// Issue new receive interrupt
+			HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
+			break;
+
+		case STM32_CMD_NEWDEV_OK:
+			// Release NEWDEV line (open drain) & disable NEWDEV LED (LED1)=> NEWDEV confirmed by host
+			HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(NEW_DEVICE_GPIO_Port, NEW_DEVICE_Pin, GPIO_PIN_SET);
+
+//			NEWDEV_STATUS = 0x00;
+
+			// Issue new receive interrupt
+			HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
+
+//		case STM32_CMD_CS_STATUS:
+//			I2C_DATA_BUFFER[0] = CS_STATUS;
+//			// Reply MASTER with CS_STATUS word (1 byte)
+//			HAL_I2C_Slave_Transmit_IT(&hi2c1, &I2C_DATA_BUFFER, 1);
+//
+//			// Don't issue new receive interrupt yet!
+//			break;
+//
+//		case STM32_CMD_IRQ_STATUS:
+//			I2C_DATA_BUFFER[0] = IRQ_STATUS;
+//			// Reply MASTER with IRQ_STATUS
+//			HAL_I2C_Slave_Transmit_IT(&hi2c1, &I2C_DATA_BUFFER, 1);
+//
+//			// Don't issue new receive interrupt yet!
+//			break;
+//
+//		case STM32_CMD_SLEEP:
+//			// Sleep device
+//			break;
+	}
 }
+
+
+//void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c){
+//	// Issue new receive interrupt after replying MASTER from a write
+//	HAL_I2C_Slave_Receive_IT(&hi2c1, &I2C_DATA_BUFFER, sizeof(I2C_DATA_BUFFER));
+//}
+/*
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {
+	if (HAL_I2C_GetError(hi2c) != HAL_I2C_ERROR_AF) {
+		asm("nop");
+	}
+}
+*/
+
+//HAL_I2C_MasterTxCpltCallback (I2C_HandleTypeDef *hi2c)
+//{
+//  /* when
+//   * hal_i2c_master_transmit_it (i2c_handletypedef * hi2c, uint16_t devaddress, uint8_t * pdata, uint16_t size);
+//   * is called and after completion, this function will be called and executed.
+//   * if you’d like to do something upon data transmission completion, then add this to your code in the application source file (main.c).
+//	*/
+//}
 
 /* USER CODE END 4 */
 
