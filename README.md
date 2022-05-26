@@ -6,7 +6,7 @@ Development of a hardware platform for UWB location measurements with AFSIW ante
 - scalable/cascadable multi-antenna configurable
 
 <p align="center">
-    <img src="/Images/Single_front.png">
-    <img src="/Images/Single_back.png">
-    <img src="/Images/Multi_front.png">
+    <img src="/Images/Single_front.png" width="48%">
+    <img src="/Images/Single_back.png" width="45%">
+    <img src="/Images/Multi_front.png" width="80%">
 </p>
